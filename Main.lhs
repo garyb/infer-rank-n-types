@@ -79,16 +79,21 @@ initTypeEnv
 -------------------------------------
 --	From here down is helper stuff
 
+debugSubst :: Tc a -> Tc (Subst, a)
+debugSubst tc = do { x <- tc
+                   ; s <- getSubst
+                   ; return (s, x) }
+
 tc_help :: IO (Maybe Term) -> IO ()
 tc_help get_term
   = do  { mb_e <- get_term
 	; case mb_e of {
 	    Nothing -> return () ;
 	    Just e  -> do {
-	  res <- runTc initTypeEnv (typecheck e)
+	  res <- runTc initTypeEnv (debugSubst (typecheck e))
 	; case res of
 		Left err -> putStrLn (docToString err)
-		Right ty -> putStrLn (docToString (sep [pprParendTerm e, nest 2 (dcolon <+> ppr ty)]))
+		Right (s, ty) -> putStrLn $ (show s) ++ "\n" ++ (docToString (sep [pprParendTerm e, nest 2 (dcolon <+> ppr ty)]))
    }}}
 
 

@@ -58,7 +58,7 @@ data TyVar
 				-- just to improve error messages
 
 data MetaTv = Meta Uniq  -- Can unify with any tau-type
-            deriving( Ord, Eq )
+            deriving( Ord, Eq, Show )
 
 instance Eq TyVar where
   (BoundTv s1)    == (BoundTv s2)    = s1 == s2

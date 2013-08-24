@@ -5,7 +5,7 @@ module TcMonad(
 
         -- Environment manipulation
         extendVarEnv, lookupVar, 
- 	getEnvTypes, getFreeTyVars, getMetaTyVars,
+        getEnvTypes, getFreeTyVars, getMetaTyVars,
 
         -- Types and unification
         newTyVarTy, 
@@ -13,7 +13,11 @@ module TcMonad(
         unify, unifyFun,
 
         -- Ref cells
-        newTcRef, readTcRef, writeTcRef
+        newTcRef, readTcRef, writeTcRef,
+        
+        -- Substitutions
+        Subst,
+        getSubst
         
     ) where
 
@@ -107,6 +111,13 @@ getSubst :: Tc Subst
 getSubst = Tc (\ (TcEnv {substs = ref}) ->
            do { s <- readIORef ref
               ; return (Right s) })
+              
+applySubst :: Subst -> Tau -> Tau     
+applySubst s (MetaTv m) = 
+  case (Map.lookup m s) of
+    Just t -> t
+    Nothing -> MetaTv m
+applySubst s t = t
 
 --------------------------------------------------
 --      Creating, reading, writing MetaTvs        --
@@ -128,11 +139,12 @@ newSkolemTyVar tv = do { uniq <- newUnique
 readTv  :: MetaTv -> Tc (Maybe Tau)
 readTv  m = do { s <- getSubst
                ; return (Map.lookup m s) }
-
+     
 writeTv :: MetaTv -> Tau -> Tc ()
 writeTv m ty = Tc (\ (TcEnv {substs = ref}) ->
                do { s <- readIORef ref
-                  ; writeIORef ref (Map.insert m ty s)
+                  ; let s1 = Map.map (applySubst s) s
+                  ; writeIORef ref (Map.insert m ty s1)
                   ; return (Right ()) })
 
 newUnique :: Tc Uniq
