@@ -57,14 +57,8 @@ data TyVar
   | SkolemTv String Uniq	-- A skolem constant; the String is 
 				-- just to improve error messages
 
-data MetaTv = Meta Uniq TyRef  -- Can unify with any tau-type
-
-type TyRef = IORef (Maybe Tau)
-        -- 'Nothing' means the type variable is not substituted
-        -- 'Just ty' means it has been substituted by 'ty'
-
-instance Eq MetaTv where
-  (Meta u1 _) == (Meta u2 _) = u1 == u2
+data MetaTv = Meta Uniq  -- Can unify with any tau-type
+            deriving( Ord, Eq )
 
 instance Eq TyVar where
   (BoundTv s1)    == (BoundTv s2)    = s1 == s2
@@ -205,7 +199,7 @@ instance Outputable Type where
    ppr ty = pprType topPrec ty
 
 instance Outputable MetaTv where
-   ppr (Meta u _) = text "$" <> int u
+   ppr (Meta u) = text "$" <> int u
 
 instance Outputable TyVar where
    ppr (BoundTv n)    = text n

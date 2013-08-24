@@ -27,10 +27,12 @@ import Data.List( nub, (\\) )
 --      The monad itself                --
 ------------------------------------------
 
+type Subst = Map.Map MetaTv Tau
+
 data TcEnv 
-  = TcEnv { uniqs   :: IORef Uniq,         -- Unique supply
-            var_env :: Map.Map Name Sigma  -- Type environment for term variables
-    }   
+  = TcEnv { uniqs   :: IORef Uniq,          -- Unique supply
+            var_env :: Map.Map Name Sigma,  -- Type environment for term variables
+            substs  :: IORef Subst }        -- Substitutions
 
 newtype Tc a = Tc (TcEnv -> IO (Either ErrMsg a))
 unTc :: Tc a ->   (TcEnv -> IO (Either ErrMsg a))
@@ -56,11 +58,12 @@ check False d = failTc d
 runTc :: [(Name,Sigma)] -> Tc a -> IO (Either ErrMsg a)
 -- Run type-check, given an initial environment
 runTc binds (Tc tc)
-  = do { ref <- newIORef 0
-       ; let { env = TcEnv { uniqs = ref, 
-                             var_env = Map.fromList binds } }
+  = do { uref <- newIORef 0
+       ; sref <- newIORef Map.empty
+       ; let { env = TcEnv { uniqs = uref, 
+                             var_env = Map.fromList binds,
+                             substs = sref } }
        ; tc env }
-  where
     
 lift :: IO a -> Tc a
 -- Lift a state transformer action into the typechecker monad
@@ -95,7 +98,15 @@ lookupVar n = do { env <- getEnv
                  ; case Map.lookup n env of
                      Just ty -> return ty
                      Nothing -> failTc (text "Not in scope:" <+> quotes (pprName n)) }
+                     
+------------------------------------------
+--      Substitutions                   --
+------------------------------------------
 
+getSubst :: Tc Subst
+getSubst = Tc (\ (TcEnv {substs = ref}) ->
+           do { s <- readIORef ref
+              ; return (Right s) })
 
 --------------------------------------------------
 --      Creating, reading, writing MetaTvs        --
@@ -107,8 +118,7 @@ newTyVarTy = do { tv <- newMetaTyVar
 
 newMetaTyVar :: Tc MetaTv
 newMetaTyVar = do { uniq <- newUnique 
-                  ; tref <- newTcRef Nothing 
-                  ; return (Meta uniq tref) }
+                  ; return (Meta uniq) }
 
 newSkolemTyVar :: TyVar -> Tc TyVar
 newSkolemTyVar tv = do { uniq <- newUnique 
@@ -116,10 +126,14 @@ newSkolemTyVar tv = do { uniq <- newUnique
 
 
 readTv  :: MetaTv -> Tc (Maybe Tau)
-readTv  (Meta _ ref) = readTcRef ref
+readTv  m = do { s <- getSubst
+               ; return (Map.lookup m s) }
 
 writeTv :: MetaTv -> Tau -> Tc ()
-writeTv (Meta _ ref) ty = writeTcRef ref (Just ty)
+writeTv m ty = Tc (\ (TcEnv {substs = ref}) ->
+               do { s <- readIORef ref
+                  ; writeIORef ref (Map.insert m ty s)
+                  ; return (Right ()) })
 
 newUnique :: Tc Uniq
 newUnique = Tc (\ (TcEnv {uniqs = ref}) ->
