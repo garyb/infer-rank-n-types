@@ -129,10 +129,10 @@ subsCheckRho sigma1@(ForAll _ _) rho2	 -- Rule SPEC
   = do { rho1 <- instantiate sigma1
        ; subsCheckRho rho1 rho2 }
 
-subsCheckRho rho1 (Fun a2 r2)            -- Rule FUN
+subsCheckRho rho1 (TAp (TAp (TyCon FnT) a2) r2) -- Rule FUN
   = do { (a1,r1) <- unifyFun rho1; subsCheckFun a1 r1 a2 r2 }
 
-subsCheckRho (Fun a1 r1) rho2            -- Rule FUN
+subsCheckRho (TAp (TAp (TyCon FnT) a1) r1) rho2 -- Rule FUN
   = do { (a2,r2) <- unifyFun rho2; subsCheckFun a1 r1 a2 r2 }
 
 subsCheckRho tau1 tau2                   -- Rule MONO

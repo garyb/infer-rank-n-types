@@ -46,7 +46,7 @@ type Rho   = Type	-- No top-level ForAll
 type Tau   = Type	-- No ForAlls anywhere
 
 data Type = ForAll [TyVar] Rho	  -- Forall type
-	  | Fun    Type Type 	  -- Function type
+	  | TAp    Type Type      -- Type function application
 	  | TyCon  TyCon      	  -- Type constants
 	  | TyVar  TyVar      	  -- Always bound by a ForAll
 	  | MetaTv MetaTv     	  -- A meta type variable
@@ -66,18 +66,19 @@ instance Eq TyVar where
 
 type Uniq = Int
 
-data TyCon = IntT | BoolT
+data TyCon = IntT | BoolT | FnT
            deriving( Eq )
 
 ---------------------------------
 --      Constructors
 
 (-->) :: Sigma -> Sigma -> Sigma
-arg --> res = Fun arg res
+arg --> res = TAp (TAp fnType arg) res
 
-intType, boolType :: Tau
+intType, boolType, fnType :: Tau
 intType  = TyCon IntT
 boolType = TyCon BoolT
+fnType   = TyCon FnT
 
 ---------------------------------
 --	Free and bound variables
@@ -91,7 +92,7 @@ metaTvs tys = foldr go [] tys
 	| otherwise	 = tv : acc
     go (TyVar _)     acc = acc
     go (TyCon _)     acc = acc
-    go (Fun arg res) acc = go arg (go res acc)
+    go (TAp arg res) acc = go arg (go res acc)
     go (ForAll _ ty) acc = go ty acc	-- ForAll binds TyVars only
 
 freeTyVars :: [Type] -> [TyVar]
@@ -108,7 +109,7 @@ freeTyVars tys = foldr (go []) [] tys
 	| otherwise		 = tv : acc
     go bound (MetaTv _)      acc = acc
     go bound (TyCon _)       acc = acc
-    go bound (Fun arg res)   acc = go bound arg (go bound res acc)
+    go bound (TAp arg res)   acc = go bound arg (go bound res acc)
     go bound (ForAll tvs ty) acc = go (tvs ++ bound) ty acc
 
 tyVarBndrs :: Rho -> [TyVar]
@@ -117,7 +118,7 @@ tyVarBndrs :: Rho -> [TyVar]
 tyVarBndrs ty = nub (bndrs ty)
   where
     bndrs (ForAll tvs body) = tvs ++ bndrs body
-    bndrs (Fun arg res)     = bndrs arg ++ bndrs res
+    bndrs (TAp arg res)     = bndrs arg ++ bndrs res
     bndrs _                 = []
 
 tyVarName :: TyVar -> String
@@ -138,7 +139,7 @@ substTy :: [TyVar] -> [Type] -> Type -> Type
 substTy tvs tys ty = subst_ty (tvs `zip` tys) ty
 
 subst_ty :: Env -> Type -> Type
-subst_ty env (Fun arg res)   = Fun (subst_ty env arg) (subst_ty env res)
+subst_ty env (TAp arg res)   = TAp (subst_ty env arg) (subst_ty env res)
 subst_ty env (TyVar n)       = fromMaybe (TyVar n) (lookup n env)
 subst_ty env (MetaTv tv)     = MetaTv tv
 subst_ty env (TyCon tc)      = TyCon tc
@@ -217,7 +218,7 @@ atomicPrec = 3  -- Precedence of t
 
 precType :: Type -> Precedence
 precType (ForAll _ _) = topPrec
-precType (Fun _ _)    = arrPrec
+precType (TAp _ _)    = arrPrec
 precType _            = atomicPrec   
         -- All the types are be atomic
 
@@ -234,8 +235,8 @@ ppr_type :: Type -> Doc         -- No parens
 ppr_type (ForAll ns ty) = sep [text "forall" <+> 
                                   hsep (map ppr ns) <> dot, 
                                ppr ty]
-ppr_type (Fun arg res)  = sep [pprType arrPrec arg <+> text "->", 
-                               pprType (arrPrec-1) res]
+ppr_type (TAp (TAp (TyCon FnT) arg) res) = pprType arrPrec arg <+> text "->" <+> pprType (arrPrec-1) res
+ppr_type (TAp arg res)  = pprType (arrPrec-1) arg <+> pprType arrPrec res
 ppr_type (TyCon tc)     = ppr_tc tc
 ppr_type (TyVar n)      = ppr n
 ppr_type (MetaTv tv)    = ppr tv

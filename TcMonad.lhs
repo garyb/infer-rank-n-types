@@ -174,9 +174,9 @@ skolemise (ForAll tvs ty)	-- Rule PRPOLY
   = do { sks1 <- mapM newSkolemTyVar tvs
        ; (sks2, ty') <- skolemise (substTy tvs (map TyVar sks1) ty)
        ; return (sks1 ++ sks2, ty') }
-skolemise (Fun arg_ty res_ty)	-- Rule PRFUN
+skolemise (TAp (TAp (TyCon FnT) arg_ty) res_ty)	-- Rule PRFUN
   = do { (sks, res_ty') <- skolemise res_ty
-       ; return (sks, Fun arg_ty res_ty') }
+       ; return (sks, arg_ty --> res_ty') }
 skolemise ty 			-- Rule PRMONO
   = return ([], ty)
 
@@ -228,9 +228,9 @@ getFreeTyVars tys = do { tys' <- mapM zonkType tys
 zonkType :: Type -> Tc Type
 zonkType (ForAll ns ty) = do { ty' <- zonkType ty 
                              ; return (ForAll ns ty') }
-zonkType (Fun arg res)  = do { arg' <- zonkType arg 
+zonkType (TAp arg res)  = do { arg' <- zonkType arg 
                              ; res' <- zonkType res
-                             ; return (Fun arg' res') }
+                             ; return (TAp arg' res') }
 zonkType (TyCon tc)     = return (TyCon tc)
 zonkType (TyVar n)      = return (TyVar n)
 zonkType (MetaTv tv)    -- A mutable type variable
@@ -258,8 +258,8 @@ unify (MetaTv tv1) (MetaTv tv2) | tv1 == tv2 = return ()
 unify (MetaTv tv) ty = unifyVar tv ty
 unify ty (MetaTv tv) = unifyVar tv ty
 
-unify (Fun arg1 res1)
-      (Fun arg2 res2)
+unify (TAp arg1 res1)
+      (TAp arg2 res2)
   = do { unify arg1 arg2; unify res1 res2 }
 
 unify (TyCon tc1) (TyCon tc2) 
@@ -298,7 +298,7 @@ unifyUnboundVar tv1 ty2
 unifyFun :: Rho -> Tc (Sigma, Rho)
 --      (arg,res) <- unifyFunTy fun
 -- unifies 'fun' with '(arg -> res)'
-unifyFun (Fun arg res) = return (arg,res)
+unifyFun (TAp (TAp (TyCon FnT) arg) res) = return (arg,res)
 unifyFun tau           = do { arg_ty <- newTyVarTy
                             ; res_ty <- newTyVarTy
                             ; unify tau (arg_ty --> res_ty)

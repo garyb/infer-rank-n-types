@@ -145,7 +145,7 @@ readRho = choice [try rfun, atomRho]
 
 rfun :: Parser Rho
 rfun = do { arg <- atomSigma ; reservedOp "->";
-	    res <- readRho; return (Fun arg res) }
+	    res <- readRho; return (arg --> res) }
 
 atomRho :: Parser Rho
 atomRho = choice [try tvar, tcon, parens readRho]
@@ -163,7 +163,7 @@ tvar = do { v <- identifier;
 	     then fail "" else return ();
 	    return (TyVar (BoundTv v)) }
 tfun = do { arg <- atomTau ; reservedOp "->";
-	    res <- readTau; return (Fun arg res) }
+	    res <- readTau; return (arg --> res) }
 tcon = choice [try $ do { "Int"  <- identifier; return intType },
 	       do { "Bool" <- identifier; return boolType }]
 
