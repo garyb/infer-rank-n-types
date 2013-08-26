@@ -22,16 +22,16 @@ type Name = String      -- Names are very simple
 -----------------------------------
 --      Expressions             -- 
 -----------------------------------
-                                  -- Examples below
-data Term = Var Name              -- x
-          | Lit Int               -- 3
-          | App Term Term         -- f x
-          | Lam Name Term         -- \ x -> x
-          | ALam Name Sigma Term  -- \ x -> x
-          | Let Name Term Term    -- let x = f y in x+1
-          | Ann Term Sigma        -- (f x) :: Int
 
-atomicTerm :: Term -> Bool
+data Term a = Var a                     -- x
+            | Lit Int                   -- 3
+            | App (Term a) (Term a)     -- f x
+            | Lam a (Term a)            -- \ x -> x
+            | ALam a Sigma (Term a)     -- \ x -> x
+            | Let a (Term a) (Term a)   -- let x = f y in x+1
+            | Ann (Term a) Sigma        -- (f x) :: Int
+
+atomicTerm :: Term a -> Bool
 atomicTerm (Var _) = True
 atomicTerm (Lit _) = True
 atomicTerm _       = False
@@ -155,6 +155,9 @@ subst_ty env (ForAll ns rho) = ForAll ns (subst_ty env' rho)
 
 class Outputable a where
   ppr :: a -> Doc
+  
+class OutputableName a where
+  pprName :: a -> Doc
 
 docToString :: Doc -> String
 docToString = render
@@ -165,7 +168,7 @@ dot    = char '.'
 
 -------------- Pretty-printing terms ---------------------
 
-instance Outputable Term where
+instance (OutputableName a) => Outputable (Term a) where
    ppr (Var n)       = pprName n
    ppr (Lit i)       = int i
    ppr (App e1 e2)   = pprApp (App e1 e2)
@@ -178,22 +181,24 @@ instance Outputable Term where
                             ppr b]
    ppr (Ann e ty)    = pprParendTerm e <+> dcolon <+> pprParendType ty
 
-instance Show Term where
+instance (OutputableName a) => Show (Term a) where
    show t = docToString (ppr t)
+   
+instance (OutputableName a) => OutputableName [a] where
+   pprName xs = hcat (map pprName xs)
+   
+instance OutputableName Char where
+   pprName c = char c
 
-pprParendTerm :: Term -> Doc
+pprParendTerm :: (OutputableName a) => Term a -> Doc
 pprParendTerm e | atomicTerm e = ppr e
                 | otherwise    = parens (ppr e)
 
-pprApp :: Term -> Doc
+pprApp :: (OutputableName a) => Term a -> Doc
 pprApp e = go e []
   where
     go (App e1 e2) es = go e1 (e2:es)
     go e' es           = pprParendTerm e' <+> sep (map pprParendTerm es)
-
-pprName :: Name -> Doc
-pprName n = text n
-
 
 -------------- Pretty-printing types ---------------------
 

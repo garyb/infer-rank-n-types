@@ -88,7 +88,7 @@ debugSubst tc = do { x <- tc
                    ; s <- getSubst
                    ; return (s, x) }
 
-tc_help :: IO (Maybe Term) -> IO ()
+tc_help :: IO (Maybe (Term Name)) -> IO ()
 tc_help get_term
   = do  { mb_e <- get_term
 	; case mb_e of {
@@ -101,7 +101,7 @@ tc_help get_term
    }}}
 
 
-parseFile :: String -> IO (Maybe Term)
+parseFile :: String -> IO (Maybe (Term Name))
 parseFile filename
   = do { r <- parseFromFile parseTerm filename
        ; case r of
@@ -109,7 +109,7 @@ parseFile filename
 			  ; return Nothing }
 	   Right ans -> return (Just ans) }
 
-parseString :: String -> IO (Maybe Term)
+parseString :: String -> IO (Maybe (Term Name))
 parseString str
   = do { let r = parse parseTerm "<interactive>" str
        ; case r of

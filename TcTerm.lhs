@@ -11,7 +11,7 @@ import Text.PrettyPrint.HughesPJ
 --      The top-level wrapper           --
 ------------------------------------------
 
-typecheck :: Term -> Tc Sigma
+typecheck :: (Term Name) -> Tc Sigma
 typecheck e = do { ty <- inferSigma e
                  ; zonkType ty }
 
@@ -26,17 +26,17 @@ data Expected a = Infer (IORef a) | Check a
 --      tcRho, and its variants         --
 ------------------------------------------
 
-checkRho :: Term -> Rho -> Tc ()
+checkRho :: (Term Name) -> Rho -> Tc ()
 -- Invariant: the Rho is always in weak-prenex form
 checkRho expr ty = tcRho expr (Check ty)
 
-inferRho :: Term -> Tc Rho
+inferRho :: (Term Name) -> Tc Rho
 inferRho expr 
   = do { ref <- newTcRef (error "inferRho: empty result")
        ; tcRho expr (Infer ref)
        ; readTcRef ref }
 
-tcRho :: Term -> Expected Rho -> Tc ()
+tcRho :: (Term Name) -> Expected Rho -> Tc ()
 -- Invariant: if the second argument is (Check rho),
 -- 	      then rho is in weak-prenex form
 tcRho (Lit _) exp_ty
@@ -83,7 +83,7 @@ tcRho (Ann body ann_ty) exp_ty
 --      inferSigma and checkSigma
 ------------------------------------------
 
-inferSigma :: Term -> Tc Sigma
+inferSigma :: (Term Name) -> Tc Sigma
 inferSigma e
    = do { exp_ty <- inferRho e
         ; env_tys <- getEnvTypes
@@ -92,7 +92,7 @@ inferSigma e
         ; let forall_tvs = res_tvs \\ env_tvs
         ; quantify forall_tvs exp_ty }
 
-checkSigma :: Term -> Sigma -> Tc ()
+checkSigma :: (Term Name) -> Sigma -> Tc ()
 checkSigma expr sigma
   = do { (skol_tvs, rho) <- skolemise sigma
        ; checkRho expr rho

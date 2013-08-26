@@ -51,53 +51,55 @@ parserToReadS :: Parser a -> ReadS a
 parserToReadS p s = case parse (whiteSpace >> p) "" s of
 			Left _err -> []
 			Right a  -> [(a,"")]
+                        
+type BasicTerm = Term Name
 
 
 -----------------------------
-instance Read Term where
-  readsPrec _ = parserToReadS readTerm
+-- instance Read BasicTerm where
+  -- readsPrec _ = parserToReadS readTerm
 
-instance Read Type where
-  readsPrec _ = parserToReadS readSigma
+-- instance Read Type where
+  -- readsPrec _ = parserToReadS readSigma
 
 -----------------------------
-parseTerm :: Parser Term
+parseTerm :: Parser BasicTerm
 parseTerm = do	{ whiteSpace
 		; t <- readTerm
 		; eof
 		; return t }
 
-readTerm :: Parser Term
+readTerm :: Parser BasicTerm
 readTerm = choice [try ann, non_ann]
 
-non_ann :: Parser Term
+non_ann :: Parser BasicTerm
 non_ann = choice [lam, rlet, app]
 
-atom :: Parser Term
+atom :: Parser BasicTerm
 atom = choice [parens readTerm, lit, var]
 
-lit :: Parser Term
+lit :: Parser BasicTerm
 lit = do { i <- integer; return (Lit (fromInteger i)) }
 
-var :: Parser Term
+var :: Parser BasicTerm
 var = do { v <- identifier; return (Var v) }
 
 
-app :: Parser Term
+app :: Parser BasicTerm
 app = do { (fun:args) <- many1 atom; 
 	   return (foldl App fun args) }
 
-lam :: Parser Term
+lam :: Parser BasicTerm
 lam = do { reservedOp "\\" ;
 	   ann_lam <|> ord_lam }
 
-ord_lam :: Parser Term
+ord_lam :: Parser BasicTerm
 ord_lam = do { v <- identifier ;
 	       dot ;
 	       body <- readTerm ; 
 	       return (Lam v body) }
 
-ann_lam :: Parser Term
+ann_lam :: Parser BasicTerm
 ann_lam = do { (v,ty) <- parens (do {
 			    v <- identifier ;
 			    reservedOp "::" ;
@@ -107,7 +109,7 @@ ann_lam = do { (v,ty) <- parens (do {
 	       body <- readTerm ; 
 	       return (ALam v ty body) }
 
-rlet :: Parser Term
+rlet :: Parser BasicTerm
 rlet = do { reserved "let" ;
 	    v <- identifier ;
 	    reservedOp "=" ;
@@ -116,7 +118,7 @@ rlet = do { reserved "let" ;
 	    body <- readTerm ;
 	    return (Let v rhs body) }
 
-ann :: Parser Term
+ann :: Parser BasicTerm
 ann = do { term <- non_ann ;
 	   reservedOp "::" ;
 	   ty <- readSigma ;
