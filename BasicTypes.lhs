@@ -66,7 +66,7 @@ instance Eq TyVar where
 
 type Uniq = Int
 
-data TyCon = IntT | BoolT | FnT
+data TyCon = IntT | BoolT | FnT | OptionT
            deriving( Eq )
 
 ---------------------------------
@@ -75,10 +75,11 @@ data TyCon = IntT | BoolT | FnT
 (-->) :: Sigma -> Sigma -> Sigma
 arg --> res = TAp (TAp fnType arg) res
 
-intType, boolType, fnType :: Tau
+intType, boolType, fnType, optType :: Tau
 intType  = TyCon IntT
 boolType = TyCon BoolT
 fnType   = TyCon FnT
+optType  = TyCon OptionT
 
 ---------------------------------
 --	Free and bound variables
@@ -242,6 +243,8 @@ ppr_type (TyVar n)      = ppr n
 ppr_type (MetaTv tv)    = ppr tv
 
 ppr_tc :: TyCon -> Doc
-ppr_tc IntT  = text "Int"
-ppr_tc BoolT = text "Bool"
+ppr_tc IntT    = text "Int"
+ppr_tc BoolT   = text "Bool"
+ppr_tc FnT     = text "->"
+ppr_tc OptionT = text "Option"
 \end{code}

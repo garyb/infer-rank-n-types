@@ -51,6 +51,8 @@ s1 = "\\x. \\y. x"	-- A tiny example
 s2 = "let add = (\\x. \\y. x) :: forall a. a -> a -> a in \
      \ let id  = (\\x. x) :: forall a. a -> a in \
      \ add id id"
+     
+s3 = "\\x. if x (Some 0) None"
 
 -------------------------------------
 --	tcf type-checks an expression in a file
@@ -71,9 +73,11 @@ tyvarA = BoundTv "a"
 initTypeEnv :: [(Name,Sigma)]
 initTypeEnv
       = [ ("+",    intType --> intType --> intType)
-	, ("if",    ForAll [tyvarA ] (boolType --> TyVar tyvarA --> TyVar tyvarA))
+	, ("if",    ForAll [tyvarA ] (boolType --> TyVar tyvarA --> TyVar tyvarA --> TyVar tyvarA))
 	, ("True",  boolType)
 	, ("False", boolType)
+        , ("Some",  ForAll [tyvarA] ((TyVar tyvarA) --> TAp optType (TyVar tyvarA)))
+        , ("None",  ForAll [tyvarA] (TAp optType (TyVar tyvarA)))
 	]
 
 -------------------------------------
