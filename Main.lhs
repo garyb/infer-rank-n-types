@@ -49,10 +49,22 @@ s1, s2 :: String
 s1 = "\\x. \\y. x"	-- A tiny example
 
 s2 = "let add = (\\x. \\y. x) :: forall a. a -> a -> a in \
-     \ let id  = (\\x. x) :: forall a. a -> a in \
-     \ add id id"
+    \ let id  = (\\x. x) :: forall a. a -> a in \
+    \ add id id"
      
 s3 = "\\x. if x (Some 0) None"
+
+s4 = "let add = (\\x. \\y. x)  :: forall a b. a -> b -> a in \
+    \ let id  = (\\x. x) in \
+    \ let f = (add id id) in \
+    \ f 1"
+     
+s5 = "let id  = (\\x. x) in \
+    \ id 1"
+     
+s6 = "let f = (\\x. \\y. x) :: forall a b. a -> a -> a in \
+    \ let g = (\\x. \\z. x z z) :: forall c. (forall p q. p -> q -> p) -> c -> c in \
+    \ g f"
 
 -------------------------------------
 --	tcf type-checks an expression in a file

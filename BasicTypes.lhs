@@ -190,7 +190,7 @@ instance OutputableName Char where
    pprName c = char c
    
 instance OutputableName Id where
-   pprName (Id s t) = pprName s <+> text "::" <+> ppr t
+   pprName (Id s t) = parens $ pprName s <+> dcolon <+> ppr t
 
 pprParendTerm :: (OutputableName a) => Term a -> Doc
 pprParendTerm e | atomicTerm e = ppr e

@@ -48,8 +48,8 @@ tcRho (Lit i) exp_ty
 
 tcRho (Var v) exp_ty 
   = do { v_sigma <- lookupVar v 
-       ; instSigma v_sigma exp_ty 
-       ; return (Var (Id v v_sigma)) }
+       ; v_sigma' <- instSigma v_sigma exp_ty 
+       ; return (Var (Id v v_sigma')) }
 
 tcRho (App fun arg) exp_ty
   = do { (fun_ty, fun') <- inferRho fun
@@ -156,10 +156,12 @@ subsCheckFun :: Sigma -> Rho -> Sigma -> Rho -> Tc ()
 subsCheckFun a1 r1 a2 r2 
   = do { subsCheck a2 a1 ; subsCheckRho r1 r2 }
 
-instSigma :: Sigma -> Expected Rho -> Tc ()
+instSigma :: Sigma -> Expected Rho -> Tc Sigma
 -- Invariant: if the second argument is (Check rho),
 -- 	      then rho is in weak-prenex form
-instSigma t1 (Check t2) = subsCheckRho t1 t2
+instSigma t1 (Check t2) = do { subsCheckRho t1 t2
+                             ; return t2 }
 instSigma t1 (Infer r)  = do { t1' <- instantiate t1
-                             ; writeTcRef r t1' }
+                             ; writeTcRef r t1'
+                             ; return t1' }
 \end{code}
