@@ -97,7 +97,10 @@ tc_help get_term
 	  res <- runTc initTypeEnv (debugSubst (typecheck e))
 	; case res of
 		Left err -> putStrLn (docToString err)
-		Right (s, ty) -> putStrLn $ (show s) ++ "\n" ++ (docToString (sep [pprParendTerm e, nest 2 (dcolon <+> ppr ty)]))
+		Right (s, (ty, e')) -> putStrLn $ 
+                        (show e') ++ "\n\n------\n\n" ++
+                        (show s) ++ "\n\n" ++ 
+                        (docToString (sep [pprParendTerm e, nest 2 (dcolon <+> ppr ty)]))
    }}}
 
 

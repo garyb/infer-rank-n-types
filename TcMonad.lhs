@@ -17,7 +17,9 @@ module TcMonad(
         
         -- Substitutions
         Subst,
-        getSubst
+        getSubst,
+        
+        zonkTerm
         
     ) where
 
@@ -240,7 +242,39 @@ zonkType (MetaTv tv)    -- A mutable type variable
            Just ty -> do { ty' <- zonkType ty
                          ; writeTv tv ty'       -- "Short out" multiple hops
                          ; return ty' } }
+                         
+zonkTerm :: Term Id -> Tc (Term Id)
 
+zonkTerm (Var (Id i t))
+  = do { t' <- zonkType t
+       ; return (Var (Id i t')) }
+       
+zonkTerm (Lit i) = return (Lit i)
+       
+zonkTerm (App x y)
+  = do { x' <- zonkTerm x
+       ; y' <- zonkTerm y
+       ; return (App x' y') }
+       
+zonkTerm (Lam (Id i t) expr)
+  = do { t' <- zonkType t
+       ; expr' <- zonkTerm expr
+       ; return (Lam (Id i t') expr') }
+       
+zonkTerm (ALam (Id i t1) t2 expr)
+  = do { t1' <- zonkType t1
+       ; expr' <- zonkTerm expr
+       ; return (ALam (Id i t1') t2 expr') }
+       
+zonkTerm (Let (Id i t) expr1 expr2)
+  = do { t' <- zonkType t
+       ; expr1' <- zonkTerm expr1
+       ; expr2' <- zonkTerm expr2
+       ; return (Let (Id i t') expr1' expr2') }
+       
+zonkTerm (Ann expr t)
+  = do { expr' <- zonkTerm expr
+       ; return (Ann expr' t) }
 
 ------------------------------------------
 --      Unification                     --

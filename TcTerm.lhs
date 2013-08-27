@@ -11,9 +11,11 @@ import Text.PrettyPrint.HughesPJ
 --      The top-level wrapper           --
 ------------------------------------------
 
-typecheck :: (Term Name) -> Tc Sigma
-typecheck e = do { ty <- inferSigma e
-                 ; zonkType ty }
+typecheck :: (Term Name) -> Tc (Sigma, Term Id)
+typecheck e = do { (ty, e') <- inferSigma e
+                 ; ty' <- zonkType ty 
+                 ; e'' <- zonkTerm e'
+                 ; return (ty', e'') }
 
 -----------------------------------
 --      The expected type       -- 
@@ -26,81 +28,93 @@ data Expected a = Infer (IORef a) | Check a
 --      tcRho, and its variants         --
 ------------------------------------------
 
-checkRho :: (Term Name) -> Rho -> Tc ()
+checkRho :: (Term Name) -> Rho -> Tc (Term Id)
 -- Invariant: the Rho is always in weak-prenex form
 checkRho expr ty = tcRho expr (Check ty)
 
-inferRho :: (Term Name) -> Tc Rho
+inferRho :: (Term Name) -> Tc (Rho, Term Id)
 inferRho expr 
   = do { ref <- newTcRef (error "inferRho: empty result")
-       ; tcRho expr (Infer ref)
-       ; readTcRef ref }
+       ; expr' <- tcRho expr (Infer ref)
+       ; rho <- readTcRef ref
+       ; return (rho, expr') }
 
-tcRho :: (Term Name) -> Expected Rho -> Tc ()
+tcRho :: (Term Name) -> Expected Rho -> Tc (Term Id)
 -- Invariant: if the second argument is (Check rho),
 -- 	      then rho is in weak-prenex form
-tcRho (Lit _) exp_ty
-  = instSigma intType exp_ty
+tcRho (Lit i) exp_ty
+  = do { instSigma intType exp_ty
+       ; return (Lit i) }
 
 tcRho (Var v) exp_ty 
   = do { v_sigma <- lookupVar v 
-       ; instSigma v_sigma exp_ty }
+       ; instSigma v_sigma exp_ty 
+       ; return (Var (Id v v_sigma)) }
 
 tcRho (App fun arg) exp_ty
-  = do { fun_ty <- inferRho fun
+  = do { (fun_ty, fun') <- inferRho fun
        ; (arg_ty, res_ty) <- unifyFun fun_ty
-       ; checkSigma arg arg_ty
-       ; instSigma res_ty exp_ty }
+       ; arg' <- checkSigma arg arg_ty
+       ; instSigma res_ty exp_ty
+       ; return (App fun' arg') }
 
 tcRho (Lam var body) (Check exp_ty)
   = do { (var_ty, body_ty) <- unifyFun exp_ty 
-       ; extendVarEnv var var_ty (checkRho body body_ty) }
+       ; body' <- extendVarEnv var var_ty (checkRho body body_ty)
+       ; return (Lam (Id var var_ty) body') }
 
 tcRho (Lam var body) (Infer ref)
   = do { var_ty  <- newTyVarTy
-       ; body_ty <- extendVarEnv var var_ty (inferRho body)
-       ; writeTcRef ref (var_ty --> body_ty) }
+       ; (body_ty, body') <- extendVarEnv var var_ty (inferRho body)
+       ; writeTcRef ref (var_ty --> body_ty) 
+       ; return (Lam (Id var var_ty) body') }
 
 tcRho (ALam var var_ty body) (Check exp_ty)
   = do { (arg_ty, body_ty) <- unifyFun exp_ty 
        ; subsCheck arg_ty var_ty
-       ; extendVarEnv var var_ty (checkRho body body_ty) }
+       ; body' <- extendVarEnv var var_ty (checkRho body body_ty)
+       ; return (ALam (Id var var_ty) var_ty body') }
 
 tcRho (ALam var var_ty body) (Infer ref)
-  = do { body_ty <- extendVarEnv var var_ty (inferRho body)
-       ; writeTcRef ref (var_ty --> body_ty) }
+  = do { (body_ty, body') <- extendVarEnv var var_ty (inferRho body)
+       ; writeTcRef ref (var_ty --> body_ty) 
+       ; return (ALam (Id var var_ty) var_ty body') }
 
 tcRho (Let var rhs body) exp_ty
-  = do { var_ty <- inferSigma rhs
-       ; extendVarEnv var var_ty (tcRho body exp_ty) }
+  = do { (var_ty, rhs') <- inferSigma rhs
+       ; body' <- extendVarEnv var var_ty (tcRho body exp_ty)
+       ; return (Let (Id var var_ty) rhs' body') }
 
 tcRho (Ann body ann_ty) exp_ty
-   = do { checkSigma body ann_ty
-        ; instSigma ann_ty exp_ty }
+   = do { body' <- checkSigma body ann_ty
+        ; instSigma ann_ty exp_ty
+        ; return (Ann body' ann_ty) }
 
 
 ------------------------------------------
 --      inferSigma and checkSigma
 ------------------------------------------
 
-inferSigma :: (Term Name) -> Tc Sigma
+inferSigma :: (Term Name) -> Tc (Sigma, Term Id)
 inferSigma e
-   = do { exp_ty <- inferRho e
+   = do { (exp_ty, e') <- inferRho e
         ; env_tys <- getEnvTypes
 	; env_tvs <- getMetaTyVars env_tys
         ; res_tvs <- getMetaTyVars [exp_ty]
         ; let forall_tvs = res_tvs \\ env_tvs
-        ; quantify forall_tvs exp_ty }
+        ; sigma <- quantify forall_tvs exp_ty
+        ; return (sigma, e') }
 
-checkSigma :: (Term Name) -> Sigma -> Tc ()
+checkSigma :: (Term Name) -> Sigma -> Tc (Term Id)
 checkSigma expr sigma
   = do { (skol_tvs, rho) <- skolemise sigma
-       ; checkRho expr rho
+       ; expr' <- checkRho expr rho
        ; env_tys <- getEnvTypes
        ; esc_tvs <- getFreeTyVars (sigma : env_tys)
        ; let bad_tvs = filter (`elem` esc_tvs) skol_tvs
        ; check (null bad_tvs)
-               (text "Type not polymorphic enough") }
+               (text "Type not polymorphic enough")
+       ; return expr' }
 
 ------------------------------------------
 --      Subsumption checking            --

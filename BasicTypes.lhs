@@ -16,8 +16,8 @@ infixl 4 `App`   -- Application
 --      Ubiquitous types        -- 
 -----------------------------------
 
-type Name = String      -- Names are very simple
-
+type Name = String
+data Id = Id Name Type
 
 -----------------------------------
 --      Expressions             -- 
@@ -35,7 +35,6 @@ atomicTerm :: Term a -> Bool
 atomicTerm (Var _) = True
 atomicTerm (Lit _) = True
 atomicTerm _       = False
-
 
 -----------------------------------
 --      Types                   -- 
@@ -189,6 +188,9 @@ instance (OutputableName a) => OutputableName [a] where
    
 instance OutputableName Char where
    pprName c = char c
+   
+instance OutputableName Id where
+   pprName (Id s t) = pprName s <+> text "::" <+> ppr t
 
 pprParendTerm :: (OutputableName a) => Term a -> Doc
 pprParendTerm e | atomicTerm e = ppr e
