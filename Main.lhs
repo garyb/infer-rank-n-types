@@ -44,7 +44,7 @@ main = do args <- getArgs
 tcs :: String -> IO ()	-- Strings
 tcs s = tc_help (parseString s)
 
-s1, s2 :: String
+s1, s2, s3, s4, s5, s6, s7 :: String
 
 s1 = "\\x. \\y. x"	-- A tiny example
 
@@ -65,6 +65,9 @@ s5 = "let id  = (\\x. x) in \
 s6 = "let f = (\\x. \\y. x) :: forall a b. a -> a -> a in \
     \ let g = (\\x. \\z. x z z) :: forall c. (forall p q. p -> q -> p) -> c -> c in \
     \ g f"
+    
+s7 = "let id  = (\\x. x) :: forall a. a -> a in \
+    \ Pair (id True) (id 0)"
 
 -------------------------------------
 --	tcf type-checks an expression in a file
@@ -79,16 +82,18 @@ tcf f = tc_help (parseFile f)
 --	The initial type environment. 
 --	You can extend this as you like
 
-tyvarA :: TyVar
+tyvarA, tyvarB :: TyVar
 tyvarA = BoundTv "a"
+tyvarB = BoundTv "B"
 
 initTypeEnv :: [(Name,Sigma)]
 initTypeEnv
       = [ ("+",    intType --> intType --> intType)
-	, ("if",    ForAll [tyvarA ] (boolType --> TyVar tyvarA --> TyVar tyvarA --> TyVar tyvarA))
+	, ("if",    ForAll [tyvarA] (boolType --> TyVar tyvarA --> TyVar tyvarA --> TyVar tyvarA))
 	, ("True",  boolType)
 	, ("False", boolType)
-        , ("Some",  ForAll [tyvarA] ((TyVar tyvarA) --> TAp optType (TyVar tyvarA)))
+        , ("Some",  ForAll [tyvarA] (TyVar tyvarA --> TAp optType (TyVar tyvarA)))
+        , ("Pair",  ForAll [tyvarA, tyvarB] (TyVar tyvarA --> TyVar tyvarB --> pair (TyVar tyvarA) (TyVar tyvarB)))
         , ("None",  ForAll [tyvarA] (TAp optType (TyVar tyvarA)))
 	]
 
