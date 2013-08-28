@@ -68,6 +68,8 @@ s6 = "let f = (\\x. \\y. x) :: forall a b. a -> a -> a in \
     
 s7 = "let id  = (\\x. x) :: forall a. a -> a in \
     \ Pair (id True) (id 0)"
+    
+s8 = "\\x. Pair (check x) (check 0)"
 
 -------------------------------------
 --	tcf type-checks an expression in a file
@@ -90,6 +92,7 @@ initTypeEnv :: [(Name,Sigma)]
 initTypeEnv
       = [ ("+",    intType --> intType --> intType)
 	, ("if",    ForAll [tyvarA] (boolType --> TyVar tyvarA --> TyVar tyvarA --> TyVar tyvarA))
+	, ("check", ForAll [tyvarA] (PredTy ["Checkable"] (TyVar tyvarA) --> boolType))
 	, ("True",  boolType)
 	, ("False", boolType)
         , ("Some",  ForAll [tyvarA] (TyVar tyvarA --> TAp optType (TyVar tyvarA)))

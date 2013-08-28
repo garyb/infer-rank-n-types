@@ -49,6 +49,9 @@ data Type = ForAll [TyVar] Rho	  -- Forall type
 	  | TyCon  TyCon      	  -- Type constants
 	  | TyVar  TyVar      	  -- Always bound by a ForAll
 	  | MetaTv MetaTv     	  -- A meta type variable
+          | PredTy [Pred] Type    -- A predicated type
+          
+type Pred = String
 
 data TyVar
   = BoundTv String		-- A type variable bound by a ForAll
@@ -91,13 +94,14 @@ metaTvs :: [Type] -> [MetaTv]
 -- Get the MetaTvs from a type; no duplicates in result
 metaTvs tys = foldr go [] tys
   where
-    go (MetaTv tv)   acc
-	| tv `elem` acc  = acc
-	| otherwise	 = tv : acc
-    go (TyVar _)     acc = acc
-    go (TyCon _)     acc = acc
-    go (TAp arg res) acc = go arg (go res acc)
-    go (ForAll _ ty) acc = go ty acc	-- ForAll binds TyVars only
+    go (MetaTv tv)    acc
+	| tv `elem` acc   = acc
+	| otherwise	  = tv : acc
+    go (TyVar _)      acc = acc
+    go (TyCon _)      acc = acc
+    go (TAp arg res)  acc = go arg (go res acc)
+    go (ForAll _ ty)  acc = go ty acc	-- ForAll binds TyVars only
+    go (PredTy ps ty) acc = go ty acc
 
 freeTyVars :: [Type] -> [TyVar]
 -- Get the free TyVars from a type; no duplicates in result
@@ -115,6 +119,7 @@ freeTyVars tys = foldr (go []) [] tys
     go bound (TyCon _)       acc = acc
     go bound (TAp arg res)   acc = go bound arg (go bound res acc)
     go bound (ForAll tvs ty) acc = go (tvs ++ bound) ty acc
+    go bound (PredTy ps ty)  acc = go bound ty acc
 
 tyVarBndrs :: Rho -> [TyVar]
 -- Get all the binders used in ForAlls in the type, so that
@@ -123,6 +128,7 @@ tyVarBndrs ty = nub (bndrs ty)
   where
     bndrs (ForAll tvs body) = tvs ++ bndrs body
     bndrs (TAp arg res)     = bndrs arg ++ bndrs res
+    bndrs (PredTy ps ty)    = bndrs ty
     bndrs _                 = []
 
 tyVarName :: TyVar -> String
@@ -147,6 +153,7 @@ subst_ty env (TAp arg res)   = TAp (subst_ty env arg) (subst_ty env res)
 subst_ty env (TyVar n)       = fromMaybe (TyVar n) (lookup n env)
 subst_ty env (MetaTv tv)     = MetaTv tv
 subst_ty env (TyCon tc)      = TyCon tc
+subst_ty env (PredTy ps ty)  = PredTy ps (subst_ty env ty)
 subst_ty env (ForAll ns rho) = ForAll ns (subst_ty env' rho)
   where
     env' = [(n,ty') | (n,ty') <- env, not (n `elem` ns)]
@@ -252,6 +259,7 @@ ppr_type (TAp arg res)  = pprType (arrPrec-1) arg <+> pprType arrPrec res
 ppr_type (TyCon tc)     = ppr_tc tc
 ppr_type (TyVar n)      = ppr n
 ppr_type (MetaTv tv)    = ppr tv
+ppr_type (PredTy ps ty) = parens $ hsep (map text ps) <+> text "=>" <+> ppr ty
 
 ppr_tc :: TyCon -> Doc
 ppr_tc IntT    = text "Int"
