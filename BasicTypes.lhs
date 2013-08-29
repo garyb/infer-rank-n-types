@@ -49,12 +49,11 @@ data Type = ForAll [TyVar] Rho	  -- Forall type
 	  | TyCon  TyCon      	  -- Type constants
 	  | TyVar  TyVar      	  -- Always bound by a ForAll
 	  | MetaTv MetaTv     	  -- A meta type variable
+          deriving( Eq )
           
-data TyVar
-  = BoundTv String		-- A type variable bound by a ForAll
-
-  | SkolemTv String Uniq	-- A skolem constant; the String is 
-				-- just to improve error messages
+data TyVar = BoundTv String		-- A type variable bound by a ForAll
+           | SkolemTv String Uniq	-- A skolem constant; the String is 
+                                        -- just to improve error messages
 
 data MetaTv = Meta Uniq  -- Can unify with any tau-type
             deriving( Ord, Eq, Show )
@@ -67,6 +66,12 @@ type Uniq = Int
 
 data TyCon = IntT | BoolT | FnT | OptionT | PairT
            deriving( Eq )
+           
+data Qual t = Qual [Pred] t
+            deriving( Eq )
+            
+data Pred = IsIn Name Type
+          deriving( Eq )
 
 ---------------------------------
 --      Constructors
