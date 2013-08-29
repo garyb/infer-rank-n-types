@@ -97,8 +97,8 @@ initTypeEnv :: [(Name,Sigma)]
 initTypeEnv
       = [ ("+",    intType --> intType --> intType)
 	, ("if",    ForAll [tyvarA] (boolType --> TyVar tyvarA --> TyVar tyvarA --> TyVar tyvarA))
-	, ("check", ForAll [tyvarA] (PredTy ["Checkable"] (TyVar tyvarA) --> boolType))
-	, ("plus",  ForAll [tyvarA, tyvarB] (PredTy ["Plus"] (TyVar tyvarA) --> PredTy ["Plus"] (TyVar tyvarB) --> PredTy ["Plus"] (TyVar tyvarA)))
+--	, ("check", ForAll [tyvarA] (PredTy ["Checkable"] (TyVar tyvarA) --> boolType))
+--	, ("plus",  ForAll [tyvarA, tyvarB] (PredTy ["Plus"] (TyVar tyvarA) --> PredTy ["Plus"] (TyVar tyvarB) --> PredTy ["Plus"] (TyVar tyvarA)))
 	, ("True",  boolType)
 	, ("False", boolType)
         , ("Some",  ForAll [tyvarA] (TyVar tyvarA --> TAp optType (TyVar tyvarA)))

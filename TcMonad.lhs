@@ -230,8 +230,6 @@ getFreeTyVars tys = do { tys' <- mapM zonkType tys
 zonkType :: Type -> Tc Type
 zonkType (ForAll ns ty) = do { ty' <- zonkType ty 
                              ; return (ForAll ns ty') }
-zonkType (PredTy ps ty) = do { ty' <- zonkType ty 
-                             ; return (PredTy ps ty') }
 zonkType (TAp arg res)  = do { arg' <- zonkType arg 
                              ; res' <- zonkType res
                              ; return (TAp arg' res') }
@@ -294,9 +292,6 @@ unify (MetaTv tv1) (MetaTv tv2) | tv1 == tv2 = return ()
 
 unify (MetaTv tv) ty = unifyVar tv ty
 unify ty (MetaTv tv) = unifyVar tv ty
-
-unify (PredTy ps ty1) ty2 = unify ty1 ty2
-unify ty1 (PredTy ps ty2) = unify ty1 ty2
 
 unify (TAp arg1 res1)
       (TAp arg2 res2)
