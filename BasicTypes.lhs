@@ -70,7 +70,7 @@ data TyCon = IntT | BoolT | FnT | OptionT | PairT
 data Qual t = Qual [Pred] t
             deriving( Eq )
             
-data Pred = IsIn Name Type
+data Pred = IsIn Name [Type]
           deriving( Eq )
 
 ---------------------------------
@@ -156,6 +156,8 @@ subst_ty env (ForAll ns rho) = ForAll ns (subst_ty env' rho)
   where
     env' = [(n,ty') | (n,ty') <- env, not (n `elem` ns)]
 
+substPred :: [TyVar] -> [Type] -> Pred -> Pred
+substPred tvs tys (IsIn c pts) = IsIn c (substTy tvs tys `map` pts)
 
 -----------------------------------
 --      Pretty printing class   -- 

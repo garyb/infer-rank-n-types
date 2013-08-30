@@ -95,7 +95,7 @@ tcRho (Ann body ann_ty) exp_ty
 --      inferSigma and checkSigma
 ------------------------------------------
 
-inferSigma :: (Term Name) -> Tc (Sigma, Term Id)
+inferSigma :: (Term Name) -> Tc (Qual Sigma, Term Id)
 inferSigma e
    = do { (exp_ty, e') <- inferRho e
         ; env_tys <- getEnvTypes
@@ -103,11 +103,11 @@ inferSigma e
         ; res_tvs <- getMetaTyVars [exp_ty]
         ; let forall_tvs = res_tvs \\ env_tvs
         ; sigma <- quantify forall_tvs exp_ty
-        ; return (sigma, e') }
+        ; return (Qual [] sigma, e') }
 
-checkSigma :: (Term Name) -> Sigma -> Tc (Term Id)
-checkSigma expr sigma
-  = do { (skol_tvs, rho) <- skolemise sigma
+checkSigma :: (Term Name) -> Qual Sigma -> Tc (Term Id)
+checkSigma expr qsigma@(Qual _ sigma)
+  = do { (_, skol_tvs, rho) <- skolemise qsigma
        ; expr' <- checkRho expr rho
        ; env_tys <- getEnvTypes
        ; esc_tvs <- getFreeTyVars (sigma : env_tys)
@@ -125,7 +125,7 @@ subsCheck :: Sigma -> Sigma -> Tc ()
 --     'off' is at least as polymorphic as 'args -> exp'
 
 subsCheck sigma1 sigma2        -- Rule DEEP-SKOL
-  = do { (skol_tvs, rho2) <- skolemise sigma2
+  = do { (_, skol_tvs, rho2) <- skolemise sigma2
        ; subsCheckRho sigma1 rho2
        ; esc_tvs <- getFreeTyVars [sigma1,sigma2]
        ; let bad_tvs = filter (`elem` esc_tvs) skol_tvs

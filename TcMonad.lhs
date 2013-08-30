@@ -37,7 +37,7 @@ type Subst = Map.Map MetaTv Tau
 
 data TcEnv 
   = TcEnv { uniqs   :: IORef Uniq,          -- Unique supply
-            var_env :: Map.Map Name Sigma,  -- Type environment for term variables
+            var_env :: Map.Map Name (Qual Sigma),  -- Type environment for term variables
             substs  :: IORef Subst }        -- Substitutions
 
 newtype Tc a = Tc (TcEnv -> IO (Either ErrMsg a))
@@ -61,7 +61,7 @@ check :: Bool -> Doc -> Tc ()
 check True  _ = return ()
 check False d = failTc d
 
-runTc :: [(Name,Sigma)] -> Tc a -> IO (Either ErrMsg a)
+runTc :: [(Name, Qual Sigma)] -> Tc a -> IO (Either ErrMsg a)
 -- Run type-check, given an initial environment
 runTc binds (Tc tc)
   = do { uref <- newIORef 0
@@ -90,16 +90,16 @@ writeTcRef r v = lift (writeIORef r v)
 --      Dealing with the type environment       --
 --------------------------------------------------
 
-extendVarEnv :: Name -> Sigma -> Tc a -> Tc a
+extendVarEnv :: Name -> Qual Sigma -> Tc a -> Tc a
 extendVarEnv var ty (Tc m) 
   = Tc (\env -> m (extend env))
   where
     extend env = env { var_env = Map.insert var ty (var_env env) }
 
-getEnv :: Tc (Map.Map Name Sigma)
+getEnv :: Tc (Map.Map Name (Qual Sigma))
 getEnv = Tc (\ env -> return (Right (var_env env)))
 
-lookupVar :: Name -> Tc Sigma    -- May fail
+lookupVar :: Name -> Tc (Qual Sigma)    -- May fail
 lookupVar n = do { env <- getEnv
                  ; case Map.lookup n env of
                      Just ty -> return ty
@@ -169,18 +169,26 @@ instantiate (ForAll tvs ty)
 instantiate ty
   = return ty
 
-skolemise :: Sigma -> Tc ([TyVar], Rho)
--- Performs deep skolemisation, retuning the 
--- skolem constants and the skolemised type
-skolemise (ForAll tvs ty)	-- Rule PRPOLY
-  = do { sks1 <- mapM newSkolemTyVar tvs
-       ; (sks2, ty') <- skolemise (substTy tvs (map TyVar sks1) ty)
-       ; return (sks1 ++ sks2, ty') }
-skolemise (TAp (TAp (TyCon FnT) arg_ty) res_ty)	-- Rule PRFUN
-  = do { (sks, res_ty') <- skolemise res_ty
-       ; return (sks, arg_ty --> res_ty') }
-skolemise ty 			-- Rule PRMONO
-  = return ([], ty)
+  
+class Skolemise t where
+  skolemise :: t -> Tc ([TyVar], [TyVar], t)
+  
+instance Skolemise Type where
+  skolemise (ForAll tvs1 ty)	-- Rule PRPOLY
+    = do { sks1 <- mapM newSkolemTyVar tvs1
+         ; (tvs2, sks2, ty') <- skolemise (substTy tvs1 (map TyVar sks1) ty)
+         ; return (tvs1 ++ tvs2, sks1 ++ sks2, ty') }
+  skolemise (TAp (TAp (TyCon FnT) arg_ty) res_ty)	-- Rule PRFUN
+    = do { (tvs, sks, res_ty') <- skolemise res_ty
+         ; return (tvs, sks, arg_ty --> res_ty') }
+  skolemise ty 			-- Rule PRMONO
+    = return ([], [], ty)
+    
+instance (Skolemise t) => Skolemise (Qual t) where
+  skolemise (Qual ps t)
+    = do { (tvs, sks, t') <- skolemise t
+         ; let ps' = substPred tvs (map TyVar sks) `map` ps
+         ; return (tvs, sks, Qual ps' t') }
 
 ------------------------------------------
 --      Quantification                  --
@@ -205,7 +213,7 @@ allBinders = [ BoundTv [x]          | x <- ['a'..'z'] ] ++
 --      Getting the free tyvars         --
 ------------------------------------------
 
-getEnvTypes :: Tc [Type]
+getEnvTypes :: Tc [Qual Type]
   -- Get the types mentioned in the environment
 getEnvTypes = do { env <- getEnv; 
 	         ; return (Map.elems env) }
