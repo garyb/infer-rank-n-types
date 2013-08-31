@@ -217,18 +217,33 @@ getEnvTypes :: Tc [Qual Type]
   -- Get the types mentioned in the environment
 getEnvTypes = do { env <- getEnv; 
 	         ; return (Map.elems env) }
+                 
+class GetVars t where
+  -- This function takes account of zonking, and returns a set
+  -- (no duplicates) of unbound meta-type variables
+  getMetaTyVars :: t -> Tc [MetaTv]
+  
+  -- This function takes account of zonking, and returns a set
+  -- (no duplicates) of free type variables
+  getFreeTyVars :: t -> Tc [TyVar]
+  
+instance (GetVars t) => GetVars [t] where
+  getMetaTyVars ts = do { ts' <- getMetaTyVars `mapM` ts
+                        ; return (nub . concat ts') }
+  getFreeTyVars ts = do { ts' <- getFreeTyVars `mapM` ts
+                        ; return (nub . concat ts') }
 
-getMetaTyVars :: [Type] -> Tc [MetaTv]
--- This function takes account of zonking, and returns a set
--- (no duplicates) of unbound meta-type variables
-getMetaTyVars tys = do { tys' <- mapM zonkType tys
-		    ; return (metaTvs tys') }
-
-getFreeTyVars :: [Type] -> Tc [TyVar]
--- This function takes account of zonking, and returns a set
--- (no duplicates) of free type variables
-getFreeTyVars tys = do { tys' <- mapM zonkType tys
-		       ; return (freeTyVars tys') }
+instance GetVars Type where
+  getMetaTyVars ty = do { ty' <- zonkType ty
+                        ; return (metaTvs [ty']) }
+  
+  getFreeTyVars ty = do { ty' <- zonkType ty
+                        ; return (freeTyVars [ty']) }
+                         
+instance (GetVars t) => GetVars (Qual t) where
+  -- TODO: look at ps list too
+  getMetaTyVars (Qual ps t) = getMetaTyVars t
+  getFreeTyVars (Qual ps t) = getFreeTyVars t
 
 ------------------------------------------
 --      Zonking                         --

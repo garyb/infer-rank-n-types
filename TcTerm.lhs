@@ -106,8 +106,8 @@ inferSigma e
         ; return (Qual [] sigma, e') }
 
 checkSigma :: (Term Name) -> Qual Sigma -> Tc (Term Id)
-checkSigma expr qsigma@(Qual _ sigma)
-  = do { (_, skol_tvs, rho) <- skolemise qsigma
+checkSigma expr sigma
+  = do { (_, skol_tvs, rho) <- skolemise sigma
        ; expr' <- checkRho expr rho
        ; env_tys <- getEnvTypes
        ; esc_tvs <- getFreeTyVars (sigma : env_tys)
